@@ -261,36 +261,29 @@ class function TCryptoLibProcessor.RewriteDirectives(const Text: string): string
 var
   i, EndPos: Integer;
   Buf, Dir: string;
+
+  procedure TryRewriteDirective(const DirectivePrefix: string);
+  begin
+    if StartsWithAt(Buf, DirectivePrefix, i) then
+    begin
+      EndPos := Buf.IndexOf('}', i - 1);
+      if EndPos >= 0 then
+      begin
+        Dir := Buf.Substring(i - 1, EndPos - i + 2);
+        Buf := Buf.Remove(i - 1, Dir.Length)
+                 .Insert(i - 1, RewriteFileDirective(Dir, DirectivePrefix));
+      end;
+    end;
+  end;
+
 begin
   Buf := Text;
   i := 1;
 
   while i <= Buf.Length do
   begin
-    // {$I ...}
-    if StartsWithAt(Buf, '{$I ', i) then
-    begin
-      EndPos := Buf.IndexOf('}', i);
-      if EndPos > 0 then
-      begin
-        Dir := Buf.Substring(i - 1, EndPos - i + 2);
-        Buf := Buf.Remove(i - 1, Dir.Length)
-                 .Insert(i - 1, RewriteFileDirective(Dir, '{$I '));
-      end;
-    end;
-
-    // {$R ...}
-    if StartsWithAt(Buf, '{$R ', i) then
-    begin
-      EndPos := Buf.IndexOf('}', i);
-      if EndPos > 0 then
-      begin
-        Dir := Buf.Substring(i - 1, EndPos - i + 2);
-        Buf := Buf.Remove(i - 1, Dir.Length)
-                 .Insert(i - 1, RewriteFileDirective(Dir, '{$R '));
-      end;
-    end;
-
+    TryRewriteDirective('{$I ');
+    TryRewriteDirective('{$R ');
     Inc(i);
   end;
 
