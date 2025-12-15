@@ -116,16 +116,19 @@ const
   CRYPTO_LIB_GIT = 'https://github.com/Xor-el/CryptoLib4Pascal.git';
   SIMPLE_BASE_LIB_GIT = 'https://github.com/Xor-el/SimpleBaseLib4Pascal.git';
   QR_CODE_GIT = 'https://github.com/Xor-el/QRCodeGenLib4Pascal.git';
+  SOL_LIB_GIT = 'https://github.com/Xor-el/SolLib4Pascal.git';
 
   HASH_LIB_PATH = 'HashLib4Pascal';
   CRYPTO_LIB_PATH = 'CryptoLib4Pascal';
   SIMPLE_BASE_LIB_PATH = 'SimpleBaseLib4Pascal';
   QR_CODE_PATH = 'QRCodeGenLib4Pascal';
+  SOL_LIB_PATH = 'SolLib4Pascal';
   COMBINED_PATH = 'CombinedCryptoLib';
 
   HASH_LIB_SRC_PATH = 'HashLib4Pascal\HashLib\src';
   CRYPTO_LIB_SRC_PATH = 'CryptoLib4Pascal\CryptoLib\src';
   SIMPLE_BASE_LIB_SRC_PATH = 'SimpleBaseLib4Pascal\SimpleBaseLib\src';
+  SOL_LIB_SRC_PATH = 'SolLib4Pascal\SolLib\src';
 
 procedure TMainFormNew.AddAllPathsToLibrary;
 begin
@@ -135,6 +138,8 @@ begin
   TCryptoLibProcessor.InstallPaths(HASH_LIB_SRC_PATH, GetSelectedVersions,
     GetSelectedPlatforms);
   TCryptoLibProcessor.InstallPaths(CRYPTO_LIB_SRC_PATH, GetSelectedVersions,
+    GetSelectedPlatforms);
+  TCryptoLibProcessor.InstallPaths(SOL_LIB_SRC_PATH, GetSelectedVersions,
     GetSelectedPlatforms);
 end;
 
@@ -180,6 +185,7 @@ begin
   CloneOrUpdate(HASH_LIB_PATH, HASH_LIB_GIT);
   CloneOrUpdate(CRYPTO_LIB_PATH, CRYPTO_LIB_GIT);
   CloneOrUpdate(QR_CODE_PATH, QR_CODE_GIT);
+  CloneOrUpdate(SOL_LIB_PATH, SOL_LIB_GIT);
   RunNextCommand;
 end;
 
@@ -219,6 +225,8 @@ begin
     HASH_LIB_SRC_PATH), Result, LogThis);
   TCryptoLibProcessor.AddToCombinedLib(TPath.Combine(CryptoLibRootPath,
     CRYPTO_LIB_SRC_PATH), Result, LogThis);
+  TCryptoLibProcessor.AddToCombinedLib(TPath.Combine(CryptoLibRootPath,
+    SOL_LIB_SRC_PATH), Result, LogThis);
 end;
 
 procedure TMainFormNew.CryptoLibsRootChange(Sender: TObject);

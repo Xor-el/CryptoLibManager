@@ -16,6 +16,7 @@ type
   private
     class procedure ProcessThisFolder(const AFolder, ACombinedPath: string;
       const ALevel: Integer; ALogProcess: TLogProcess);
+    class function RewriteDirectives(const Text: string): string;
     class procedure AddPathsToStrings(const APath: string; AList: TStrings);
     class procedure InstallPathsToRegistry(const AVersion, APlatform: String;
       PathList: TStrings);
@@ -78,7 +79,7 @@ VI, PI: Integer;
 begin
   for VI := 0 to Length(AVersions) - 1 do
   begin
-    for PI := 0 to Length(APlatforms) do
+    for PI := 0 to Length(APlatforms) - 1 do
     begin
       Registry := TRegistry.Create(KEY_READ);
       try
@@ -126,7 +127,7 @@ var
 begin
   for VI := 0 to Length(AVersions) - 1 do
   begin
-    for PI := 0 to Length(APlatforms) do
+    for PI := 0 to Length(APlatforms) - 1 do
     begin
       Registry := TRegistry.Create(KEY_READ);
       try
@@ -161,7 +162,7 @@ begin
     AddPathsToStrings(SourcePath, TS);
 
     for VI := 0 to Length(AVersions) - 1 do
-      for PI := 0 to Length(APlatforms) do
+      for PI := 0 to Length(APlatforms) - 1 do
         InstallPathsToRegistry(AVersions[VI], APlatforms[PI], TS);
 
   finally
@@ -215,27 +216,112 @@ begin
   end;
 end;
 
+class function TCryptoLibProcessor.RewriteDirectives(const Text: string): string;
+
+  function StartsWithAt(const S, Prefix: string; Pos: Integer): Boolean;
+  begin
+    Result :=
+      (Pos > 0) and
+      (Pos + Prefix.Length - 1 <= S.Length) and
+      SameText(Copy(S, Pos, Prefix.Length), Prefix);
+  end;
+
+  function RewriteFileDirective(const Full, DirectivePrefix: string): string;
+  var
+    EndBrace: Integer;
+    Inner, CleanInner, FileNameOnly: string;
+    HasQuotes: Boolean;
+  begin
+    Result := Full;
+
+    EndBrace := Full.LastIndexOf('}');
+    if EndBrace < 0 then
+      Exit;
+
+    Inner := Full.Substring(DirectivePrefix.Length,
+      EndBrace - DirectivePrefix.Length).Trim;
+
+    HasQuotes :=
+      (Inner.Length >= 2) and
+      (Inner[1] = '''') and
+      (Inner[Inner.Length] = '''');
+
+    CleanInner := Inner;
+    if HasQuotes then
+      CleanInner := CleanInner.Trim(['''']);
+
+    FileNameOnly := TPath.GetFileName(CleanInner);
+
+    if HasQuotes then
+      Result := DirectivePrefix + '''' + FileNameOnly + '''}'
+    else
+      Result := DirectivePrefix + FileNameOnly + '}';
+  end;
+
+var
+  i, EndPos: Integer;
+  Buf, Dir: string;
+begin
+  Buf := Text;
+  i := 1;
+
+  while i <= Buf.Length do
+  begin
+    // {$I ...}
+    if StartsWithAt(Buf, '{$I ', i) then
+    begin
+      EndPos := Buf.IndexOf('}', i);
+      if EndPos > 0 then
+      begin
+        Dir := Buf.Substring(i - 1, EndPos - i + 2);
+        Buf := Buf.Remove(i - 1, Dir.Length)
+                 .Insert(i - 1, RewriteFileDirective(Dir, '{$I '));
+      end;
+    end;
+
+    // {$R ...}
+    if StartsWithAt(Buf, '{$R ', i) then
+    begin
+      EndPos := Buf.IndexOf('}', i);
+      if EndPos > 0 then
+      begin
+        Dir := Buf.Substring(i - 1, EndPos - i + 2);
+        Buf := Buf.Remove(i - 1, Dir.Length)
+                 .Insert(i - 1, RewriteFileDirective(Dir, '{$R '));
+      end;
+    end;
+
+    Inc(i);
+  end;
+
+  Result := Buf;
+end;
+
 class procedure TCryptoLibProcessor.ProcessThisFolder(const AFolder,
   ACombinedPath: string; const ALevel: Integer; ALogProcess: TLogProcess);
 var
   lFiles, lFolders: TStringDynArray;
-  S, lName, lTargetName, fileContents, lInc: string;
+  S, lName, lTargetName, fileContents: string;
 begin
   if Assigned(ALogProcess) then
     ALogProcess(' ' + StringOfChar('-', ALevel * 2) + ' Processing ' + AFolder);
 
   lFolders := TDirectory.GetDirectories(AFolder);
   lFiles := TDirectory.GetFiles(AFolder);
+
   for S in lFiles do
   begin
     lName := TPath.GetFileName(S);
     lTargetName := TPath.Combine(ACombinedPath, lName);
-    if TPath.GetExtension(S).ToLower = '.pas' then
+
+    if (TPath.GetExtension(S).ToLower = '.pas') or
+       (TPath.GetExtension(S).ToLower = '.inc') then
     begin
       fileContents := TFile.ReadAllText(S);
-      lInc := '{$I ' + DupeString('..\', ALevel) + 'Include\';
-      fileContents := fileContents.Replace(lInc, '{$I ', [rfReplaceAll]);
-      TFile.WriteAllText(lTargetName, fileContents);
+
+      fileContents := RewriteDirectives(fileContents);
+
+      TFile.WriteAllText(lTargetName, fileContents, TEncoding.UTF8);
     end
     else
     begin
